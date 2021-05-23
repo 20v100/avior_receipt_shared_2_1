@@ -1,0 +1,35 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities: [gpu]
+    tty: true # keep the container open
+    env_file:
+      - ./app/.env
+    ports:
+      - 5678:5678
+      - 8888:8888
+      # - 6006:6006
+    volumes:
+      - ./app:/app:cached
+      - ./mutual:/mutual:cached
+
+  # aux:
+  #   build:
+  #     context: ./aux
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - ./aux/.env
+  #   ports:
+  #     - 5679:5678
+  #     - 8889:8888
+  #   volumes:
+  #     - ./aux:/aux:cached
+  #     - ./mutual:/mutual:cached

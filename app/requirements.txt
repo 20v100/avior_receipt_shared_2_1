@@ -1,0 +1,15 @@
+typer-cli
+typer
+xlrd # required by pandas to read excel .xlsx doc
+openpyxl # required by pandas to read excel .xls doc
+pydantic
+debugpy
+pandas
+jupyter
+jupyterlab
+requests
+torch 
+torchvision 
+torchaudio
+torchtext
+pytest

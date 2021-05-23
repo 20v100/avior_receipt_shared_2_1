@@ -1,0 +1,10 @@
+black
+pytest
+requests
+debugpy
+isort
+pandas
+xlrd # Required by Pandas to read excel files.
+typer
+transformers
+sentence-transformers

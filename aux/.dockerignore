@@ -1,0 +1,30 @@
+build
+# .dockerignore
+# Dockerfile
+# Dockerfile.prod
+**.pytest_cache
+**.DS_Store
+**cypress
+**cypress.json
+**node_modules
+**.xls?
+**.tsv
+**.csv
+**.h5
+
+# 20100
+**/*.xls?
+**/database_seed
+**/db.sqlite3
+
+
+# dependencies
+**/node_modules
+**/.pnp
+.pnp.js
+
+# testing
+**/coverage
+
+# production
+**/build
