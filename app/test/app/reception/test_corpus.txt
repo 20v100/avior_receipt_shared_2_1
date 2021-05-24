@@ -1,0 +1,3 @@
+digits: 51,36 44 TE8 This is a text for test with a .  This digit 5568 is part of the text!
+this doc has a sequence 321A-45 for 52,38.
+The sequence 34hus is essential to sequence 151.15.05 and number 34.94.
