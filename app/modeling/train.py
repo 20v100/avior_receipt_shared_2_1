@@ -1,15 +1,104 @@
 import time
+import math
 
-criterion = nn.CrossEntropyLoss()
-lr = 5.0  # learning rate
-optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.95)
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from modeling.data import (
+    vocab,
+    train_data,
+    bptt,
+    get_batch,
+    val_data,
+)
 
+#
+# ────────────────────────────────────────────────────────────────────────── I ──────────
+#   :::::: L A N G U A G E   M O D E L I N G : :  :   :    :     :        :          :
+# ────────────────────────────────────────────────────────────────────────────────────
+#
+
+
+class TransformerModel(nn.Module):
+    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
+        super(TransformerModel, self).__init__()
+        self.model_type = "Transformer"
+        self.pos_encoder = PositionalEncoding(ninp, dropout)
+        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+        self.encoder = nn.Embedding(ntoken, ninp)
+        self.ninp = ninp
+        self.decoder = nn.Linear(ninp, ntoken)
+
+        self.init_weights()
+
+    def generate_square_subsequent_mask(self, sz):
+        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float("-inf"))
+            .masked_fill(mask == 1, float(0.0))
+        )
+        return mask
+
+    def init_weights(self):
+        initrange = 0.1
+        self.encoder.weight.data.uniform_(-initrange, initrange)
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, src, src_mask):
+        src = self.encoder(src) * math.sqrt(self.ninp)
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src, src_mask)
+        output = self.decoder(output)
+        return output
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[: x.size(0), :]
+        return self.dropout(x)
+
+
+#
+# ──────────────────────────────────────────────────────────────────────────────── II ──────────
+#   :::::: T O K E N   C L A S S I F I C A T I O N : :  :   :    :     :        :          :
+# ──────────────────────────────────────────────────────────────────────────────────────────
+#
 
 torch.manual_seed(0)
 torch.use_deterministic_algorithms(True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+ntokens = len(vocab.stoi)  # the size of vocabulary
+emsize = 200  # embedding dimension
+nhid = 200  # the dimension of the feedforward network model in nn.TransformerEncoder
+nlayers = 2  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+nhead = 2  # the number of heads in the multiheadattention models
+dropout = 0.2  # the dropout value
+model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout).to(device)
+
+criterion = nn.CrossEntropyLoss()
+lr = 5.0  # learning rate
+optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.95)
 
 
 # ─── INSTANTIATE DE MODEL ───────────────────────────────────────────────────────
@@ -26,7 +115,7 @@ model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout).to(devi
 # ─── TRAIN THE MODEL ────────────────────────────────────────────────────────────
 
 
-def train():
+def train(epoch):
     model.train()  # Turn on the train mode
     total_loss = 0.0
     start_time = time.time()
@@ -82,3 +171,31 @@ def evaluate(eval_model, data_source):
             output_flat = output.view(-1, ntokens)
             total_loss += len(data) * criterion(output_flat, targets).item()
     return total_loss / (len(data_source) - 1)
+
+
+# ─── SCRIPT ──────────────────────────────────────────────────────────────────────
+
+
+def train_modeling():
+    best_val_loss = float("inf")
+    epochs = 3  # The number of epochs
+    best_model = None
+
+    for epoch in range(1, epochs + 1):
+        epoch_start_time = time.time()
+        train(epoch)
+        val_loss = evaluate(model, val_data)
+        print("-" * 89)
+        print(
+            "| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | "
+            "valid ppl {:8.2f}".format(
+                epoch, (time.time() - epoch_start_time), val_loss, math.exp(val_loss)
+            )
+        )
+        print("-" * 89)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model = model
+
+        scheduler.step()

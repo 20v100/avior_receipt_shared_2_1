@@ -8,15 +8,12 @@ import logging
 from typing import Optional
 import logging
 import typer
-import admin.logger  # Do not delete as it instance the logging utility
 
 import debugpy
 
-from invoice_train.et import create_ner_dataset
-from invoice_train.train import train_ner, save_model, post_to_server
-
 # from invoice_train.predict import test_ner
 from settings import settings
+from modeling.train import train_modeling
 
 
 # ─── CONFIG ─────────────────────────────────────────────────────────────────────
@@ -51,22 +48,22 @@ def system(
 
 
 @app_typer.command()
-def invoice(
+def nlp(
+    vocab: Optional[str] = typer.Option(
+        None,
+        help="Create a Vocabulary file for the tokenizer",
+    ),
     dataset: Optional[bool] = typer.Option(
         None,
-        help="Process Tesseract TSV files, Labels from the Avior ERP in a dataset ready for NER fine-tuning.",
+        help="Process process into a dataset.",
     ),
-    train: Optional[str] = typer.Option(
-        None,
-        help="Load ner_dataset_01.tfrecord dataset and perform deep learning NER training. Required a name for the trained model. Ex.: python /app/main.py invoice --train beta_1_model --detail",
-    ),
-    save: Optional[str] = typer.Option(
-        None,
-        help="Save latest trained model for TensorFlow serving. Model version is required.",
-    ),
-    post: Optional[bool] = typer.Option(
+    modeling: Optional[bool] = typer.Option(
         False,
-        help="Post a invoice request to server.",
+        help="Save train_modeling",
+    ),
+    save: Optional[bool] = typer.Option(
+        False,
+        help="Save ...",
     ),
     detail: Optional[bool] = typer.Option(
         False,
@@ -79,7 +76,7 @@ def invoice(
 ):
     """
     Educational deep learning NLP training for Avior invoice project.
-    ex.: docker-compose exec app python /app/main.py invoice --help
+    ex.: docker-compose exec app python /app/main.py nlp --help
     """
 
     log.info(f"Starting Avior Invoice Training App.")
@@ -93,23 +90,21 @@ def invoice(
 
     log.info("Starting Avoir NLP invoice module.")
 
+    if vocab:
+        log.info("Completed the --vocab task.")
+
     if dataset:
-        create_ner_dataset(detail)
+
         log.info("Completed the --dataset task.")
 
-    if train:
-        train_ner(train, detail)
+    if modeling:
+        # train_modeling()
         log.info(
             f"Completed --train task. Saved results in: ${settings.invoice_transformer_ner_model_path}"
         )
-
     if save:
-        save_model(save_model, detail)
-        log.info(f"Saved model to {settings.invoice_model_path} under {save_model}")
 
-    if post:
-        post_to_server(detail)
-        log.info(f"Posted to server")
+        log.info(f"Saved model to {settings.invoice_model_path} under ")
 
 
 if __name__ == "__main__":
